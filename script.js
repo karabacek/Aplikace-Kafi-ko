@@ -9,14 +9,29 @@ function make_base_auth(user, password) {
 const AUTH_HEADER = make_base_auth(username, password);
 let drinkTypes=[];
 
+function setCookie(name, value, days=7) {
+    const expires = new Date(Date.now() + days*86400000).toUTCString();
+    document.cookie = name + "=" + value + "; expires=" + expires + "; path=/";
+}
+
+function getCookie(name) {
+    return document.cookie.split("; ").find(row => row.startsWith(name+"="))?.split("=")[1];
+}
+
 async function loadUsers(){
-    const res=await fetch(`${apiUrl}?cmd=getPeopleList`,{credentials:"include", headers: {
-            "Authorization": AUTH_HEADER
-        }});
+    const res=await fetch(`${apiUrl}?cmd=getPeopleList`,{
+        credentials:"include",
+        headers:{"Authorization": AUTH_HEADER}
+    });
+
     const data=await res.json();
+
     const userSelect=document.getElementById("userSelect");
     const allUsersDiv=document.getElementById("allUsers");
+
     allUsersDiv.innerHTML="";
+    userSelect.innerHTML="";
+
     Object.values(data).forEach(user=>{
         const option=document.createElement("option");
         option.value=user.ID;
@@ -27,16 +42,36 @@ async function loadUsers(){
         p.textContent=`${user.ID} - ${user.name}`;
         allUsersDiv.appendChild(p);
     });
+
+    const savedUser =
+        localStorage.getItem("selectedUser") ||
+        sessionStorage.getItem("selectedUser") ||
+        getCookie("selectedUser");
+
+    if(savedUser){
+        userSelect.value = savedUser;
+    }
+
+    userSelect.addEventListener("change",()=>{
+        const val=userSelect.value;
+        localStorage.setItem("selectedUser",val);
+        sessionStorage.setItem("selectedUser",val);
+        setCookie("selectedUser",val);
+    });
 }
 
 async function loadDrinks(){
-    const res=await fetch(`${apiUrl}?cmd=getTypesList`,{credentials:"include", headers: {
-            "Authorization": AUTH_HEADER
-        }});
+    const res=await fetch(`${apiUrl}?cmd=getTypesList`,{
+        credentials:"include",
+        headers:{"Authorization": AUTH_HEADER}
+    });
+
     const data=await res.json();
     drinkTypes=Object.values(data);
+
     const drinkInputs=document.getElementById("drinkInputs");
     const allDrinksDiv=document.getElementById("allDrinks");
+
     drinkInputs.innerHTML="";
     allDrinksDiv.innerHTML="";
 
@@ -65,15 +100,11 @@ async function loadDrinks(){
         plusBtn.type="button";
         plusBtn.textContent="+";
 
-        minusBtn.addEventListener("click",()=>{ input.value=Math.max(0, Number(input.value)-1); });
-        plusBtn.addEventListener("click",()=>{ input.value=Number(input.value)+1; });
+        minusBtn.onclick=()=> input.value=Math.max(0, Number(input.value)-1);
+        plusBtn.onclick=()=> input.value=Number(input.value)+1;
 
-        amountControl.appendChild(minusBtn);
-        amountControl.appendChild(input);
-        amountControl.appendChild(plusBtn);
-
-        row.appendChild(label);
-        row.appendChild(amountControl);
+        amountControl.append(minusBtn,input,plusBtn);
+        row.append(label,amountControl);
         drinkInputs.appendChild(row);
 
         const p=document.createElement("p");
@@ -83,14 +114,17 @@ async function loadDrinks(){
 }
 
 async function submitDrink(){
+
     const userId=document.getElementById("userSelect").value;
     const messageDiv=document.getElementById("message");
+
     if(!userId){
         messageDiv.textContent="Vyberte uživatele!";
-        messageDiv.style.color="red";
         return;
     }
+
     const inputs=document.querySelectorAll(".drinkAmount");
+
     const drinks=drinkTypes.map(drink=>{
         const input=[...inputs].find(i=>i.dataset.drinkId==drink.ID);
         return { type: drink.typ, value: Number(input.value)||0 };
@@ -102,22 +136,28 @@ async function submitDrink(){
         const res=await fetch(`${apiUrl}?cmd=saveDrinks`,{
             method:"POST",
             credentials:"include",
-            headers:{"Content-Type":"application/json", "Authorization": AUTH_HEADER},
+            headers:{
+                "Content-Type":"application/json",
+                "Authorization": AUTH_HEADER
+            },
             body:JSON.stringify(bodyData)
         });
-        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        if(!res.ok) throw new Error();
+
         await res.json();
-        messageDiv.textContent="Data byla odeslána!";
+
+        messageDiv.textContent="Uloženo!";
         messageDiv.style.color="green";
-    }catch(err){
-        messageDiv.textContent="Chyba při odesílání!";
+
+    }catch{
+        messageDiv.textContent="Chyba!";
         messageDiv.style.color="red";
-        console.error(err);
     }
 }
 
 document.addEventListener("DOMContentLoaded",async()=>{
     await loadUsers();
     await loadDrinks();
-    document.getElementById("submitBtn").addEventListener("click",submitDrink);
+    document.getElementById("submitBtn").onclick=submitDrink;
 });
