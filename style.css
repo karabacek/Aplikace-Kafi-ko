@@ -96,8 +96,9 @@ button#submitBtn:hover {
     padding: 1rem;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    line-height: 1.8rem;
 }
 .list-box p {
-    margin: 0.3rem 0;
+    margin: 0.5rem 0;
     border-bottom: 1px solid #eee;
 }
